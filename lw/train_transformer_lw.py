@@ -45,26 +45,34 @@ def get_opt():
     opt = parser.parse_args()
     return opt
 
-def get_logger(path,suffix):
-    logger = logging.getLogger('train_miss_transformer')
-    logger.setLevel(logging.INFO)
-
-    # handler1
+def get_logger(opt):
+    # file_path
+    logger_path = os.path.join(opt.log_dir, opt.log_filename, 'cvNo'+str(opt.cvNo)) 
+    if not os.path.exists(logger_path):
+        os.makedirs(logger_path) # makedirs 创建多级目录
+    suffix = '_'.join([opt.model, opt.dataset_mode])
+    epoch = opt.epoch
     SHA_TZ = timezone(
         timedelta(hours=8),
         name='Asia/Shanghai',
-    )   
+    )
     utc_now = datetime.utcnow().replace(tzinfo=timezone.utc)
     beijing_now = utc_now.astimezone(SHA_TZ)
     cur_time = beijing_now.strftime('%Y-%m-%d-%H.%M.%S')
-    file_handler = logging.FileHandler(os.path.join(path, f"{suffix}_{cur_time}.log"))
+    file_path = os.path.join(logger_path, f"{suffix}_{epoch}epoch_{cur_time}.log")
+
+    # logger
+    logger = logging.getLogger('train_miss_transformer')
+    logger.setLevel(logging.INFO)
+
+    # file handler
+    file_handler = logging.FileHandler(file_path)
     file_handler.setLevel(logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
-    # handler2
+    # console handler
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
-
     logger.addHandler(file_handler) # 输出到文件的handler
     logger.addHandler(console_handler) # # 输出到控制台的handler
 
@@ -107,11 +115,7 @@ if __name__ == '__main__':
     opt = get_opt()
 
     # logger 
-    logger_path = os.path.join(opt.log_dir, opt.log_filename, 'cvNo'+str(opt.cvNo)) 
-    if not os.path.exists(logger_path):
-        os.makedirs(logger_path) # makedirs 创建多级目录
-    suffix = '_'.join([opt.model, opt.dataset_mode])
-    logger = get_logger(logger_path,suffix)
+    logger = get_logger(opt)
     
 
     # dataset
