@@ -1,0 +1,6 @@
+{
+    "data_root": "/data/luowei/data/IEMOCAP_full_release/",
+    "target_root": "/data/luowei/data/IEMOCAP_features_2021/target",
+    "total_cv": 10,
+    "feature_root": "/data/luowei/data/IEMOCAP_features_2021"
+}
