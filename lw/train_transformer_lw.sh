@@ -13,6 +13,8 @@ cmd="python lw/train_transformer_lw.py
 --num_thread=0
 --epoch=60
 --log_dir=./lw/logs --log_filename=train_miss_transformer_lw
+--checkpoints_dir=./lw/checkpoints
+--has_test
 "
 
 echo "\n-------------------------------------------------------------------------------------"

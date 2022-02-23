@@ -35,12 +35,18 @@ def get_opt():
     parser.add_argument('--num_threads', default=0, type=int, help='# threads for loading data')
     parser.add_argument('--max_dataset_size', type=int, default=float("inf"), help='Maximum number of samples allowed per dataset. If the dataset directory contains more than max_dataset_size, only a subset is loaded.')
 
-    # 训练参数
+    # train
     parser.add_argument('--epoch',type=int,default=10,help='training epoch number')
+
+    # test
+    parser.add_argument('--has_test', action='store_true', help='whether have test. for 10 fold there is test setting, but in 5 fold there is no test')
 
     # log
     parser.add_argument('--log_dir',type=str,default='./lw/logs',help='where log saves')
     parser.add_argument('--log_filename',type=str,default='train_miss_transformer_lw',help='log filename')
+
+    # save
+    parser.add_argument('--checkpoints_dir', type=str, default='./lw/checkpoints', help='models are saved here')
 
     opt = parser.parse_args()
     return opt
@@ -78,6 +84,26 @@ def get_logger(opt):
 
     return logger
 
+def save_network(model,epoch,opt):
+        save_filename = 'epoch%s_%s_%s.pth' % (epoch, opt.model,opt.dataset_mode)
+        save_path = os.path.join(opt.checkpoints_dir, save_filename)
+
+        torch.save(model.cpu().state_dict(), save_path)
+        model.cuda()
+
+def load_network(model,epoch,opt):
+    load_filename = 'epoch%s_%s_%s.pth' % (epoch, opt.model,opt.dataset_mode)
+    load_path = os.path.join(opt.checkpoints_dir, load_filename)
+    print('loading the model from %s' % load_path)
+    state_dict = torch.load(load_path)
+    model.load_state_dict(state_dict)
+
+def get_model_size(model):
+	para_num = sum([p.numel() for p in model.parameters()])
+	# para_size: 参数个数 * 每个4字节(float32) / 1024 / 1024，单位为 MB
+	para_size = para_num * 4 / 1024 / 1024
+	return para_size
+
 def eval(model,val_dataset):
     model.eval() # 进入到eval模式
     total_pred = []
@@ -101,15 +127,19 @@ def eval(model,val_dataset):
     total_pred = np.concatenate(total_pred)
     total_label = np.concatenate(total_label)
     acc = accuracy_score(total_label, total_pred)
+    uar = recall_score(total_label, total_pred, average='macro')
 
     model.train() # 恢复到train模式
 
-    return acc
+    return acc,uar
 
 # 将3个模态的数据拼接直接送入transformer，然后连接MLP作输出长度为8的向量
 # bash lw/train_transformer_lw.sh
 if __name__ == '__main__':
     model = MULTModel()
+    model_size = get_model_size(model)
+    print('模型大小:',model_size)
+    # print(model)
     model.cuda()
 
     opt = get_opt()
@@ -119,7 +149,7 @@ if __name__ == '__main__':
     
 
     # dataset
-    train_dataset,val_dataset = create_dataset_with_args(opt, set_name=['trn','val'])
+    train_dataset,val_dataset,test_dataset = create_dataset_with_args(opt, set_name=['trn','val','tst'])
 
     # optimizer
     optimizer = getattr(optim, 'Adam')(model.parameters(), lr=1e-5)
@@ -127,6 +157,9 @@ if __name__ == '__main__':
     # criterion
     criterion = getattr(nn, 'CrossEntropyLoss')()
     
+     
+    best_eval_uar = 0              # record the best eval UAR
+    best_eval_epoch = -1           # record the best eval epoch
     for epoch in range(opt.epoch):
         model.train()
         proc_loss = 0.0
@@ -143,7 +176,7 @@ if __name__ == '__main__':
             # batch loss
             loss = criterion(preds,label)
             loss.backward()
-            logger.info('epoch {}'.format(epoch + 1) + ' batch_id {}'.format(batch_id) +  ' batch_loss ' +  '{:.4f}'.format(loss))
+            logger.info('epoch {}'.format(epoch) + ' batch_id {}'.format(batch_id) +  ' batch_loss ' +  '{:.4f}'.format(loss))
             
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.8)
             optimizer.step()
@@ -152,11 +185,25 @@ if __name__ == '__main__':
             proc_loss += loss.item() 
             proc_size += 1
             avg_loss = proc_loss / proc_size
-        logger.info('epoch {}'.format(epoch+1) + ' epoch_loss ' +  '{:.4f}'.format(avg_loss))
+        logger.info('epoch {}'.format(epoch) + ' epoch_loss ' +  '{:.4f}'.format(avg_loss))
         
         logger.info('start to eval...')
-        acc = eval(model,val_dataset)
-        logger.info('epoch {}'.format(epoch+1) + ' val_acc ' +  '{:.4f}'.format(acc))
+        acc,uar = eval(model,val_dataset)
+        logger.info('epoch {}'.format(epoch) + ' val_acc ' +  '{:.4f}'.format(acc) + ' uar ' +  '{:.4f}'.format(uar))
+        save_network(model,epoch,opt)
+
+        if uar > best_eval_uar: # uar是recall_score
+            best_eval_epoch = epoch
+            best_eval_uar = uar
+
+    if opt.has_test:
+        logger.info('Best eval epoch %d' % best_eval_epoch)
+        logger.info('start to test...')
+        load_network(model,best_eval_epoch,opt)
+        acc, uar = eval(model,test_dataset)
+        logger.info('Test result acc %.4f uar %.4f' % (acc, uar))
+
+        
     
 
 

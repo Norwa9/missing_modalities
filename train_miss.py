@@ -151,7 +151,7 @@ if __name__ == '__main__':
             logger.info('\n{}'.format(cm))
 
         # record epoch with best result
-        if uar > best_eval_uar:
+        if uar > best_eval_uar: # uar是recall_score
             best_eval_epoch = epoch
             best_eval_uar = uar
             best_eval_acc = acc
