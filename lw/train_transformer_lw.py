@@ -65,7 +65,7 @@ def get_logger(opt):
     utc_now = datetime.utcnow().replace(tzinfo=timezone.utc)
     beijing_now = utc_now.astimezone(SHA_TZ)
     cur_time = beijing_now.strftime('%Y-%m-%d-%H.%M.%S')
-    file_path = os.path.join(logger_path, f"{suffix}_{epoch}epoch_{cur_time}.log")
+    file_path = os.path.join(logger_path, f"{cur_time}_{suffix}_{epoch}epoch.log")
 
     # logger
     logger = logging.getLogger('train_miss_transformer')
@@ -104,16 +104,36 @@ def get_model_size(model):
 	para_size = para_num * 4 / 1024 / 1024
 	return para_size
 
+def unpack_data(input,isTrain):
+    """从data字典中获取到3模态的feature"""
+    acoustic = input['A_feat'].cuda()
+    lexical = input['L_feat'].cuda()
+    visual = input['V_feat'].cuda()
+    if isTrain:
+        # 根据源码，完整模态下，dataloader返回的feature是模态完整的，所以需要根据missing_index制造模态缺失的feature
+        missing_index = input['missing_index'].long().cuda()
+        # A modality
+        A_miss_index = missing_index[:, 0].unsqueeze(1).unsqueeze(2)
+        A_miss = acoustic * A_miss_index
+        # L modality
+        L_miss_index = missing_index[:, 2].unsqueeze(1).unsqueeze(2)
+        L_miss = lexical * L_miss_index
+        # V modality
+        V_miss_index = missing_index[:, 1].unsqueeze(1).unsqueeze(2)
+        V_miss = visual * V_miss_index
+    else:
+        A_miss = acoustic
+        V_miss = visual
+        L_miss = lexical
+    return A_miss,V_miss,L_miss
+
 def eval(model,val_dataset):
     model.eval() # 进入到eval模式
     total_pred = []
     total_label = []
     for _,data in enumerate(val_dataset):
-        L_feat = data['L_feat'].cuda()
-        A_feat = data['A_feat'].cuda()
-        V_feat = data['V_feat'].cuda()
-        
-        logits , _ = model(L_feat,A_feat,V_feat)
+        A_miss,V_miss,L_miss = unpack_data(data,isTrain=False)
+        logits , _ = model(L_miss,A_miss,V_miss)
         
         # 预测，标签
         pred = F.softmax(logits, dim=-1).argmax(dim=1).detach().cpu().numpy()
@@ -166,12 +186,9 @@ if __name__ == '__main__':
         proc_size = 0
         for batch_id, data in enumerate(train_dataset):
             model.zero_grad()
-            L_feat = data['L_feat'].cuda()
-            A_feat = data['A_feat'].cuda()
-            V_feat = data['V_feat'].cuda()
             label = data['label'].cuda()
-
-            preds, _ = model(L_feat,A_feat,V_feat)
+            A_miss,V_miss,L_miss = unpack_data(data,isTrain=True)
+            preds, _ = model(L_miss,A_miss,V_miss)
 
             # batch loss
             loss = criterion(preds,label)

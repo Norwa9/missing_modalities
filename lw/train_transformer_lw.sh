@@ -11,7 +11,7 @@ cmd="python lw/train_transformer_lw.py
 --cvNo=1
 --batch_size=16
 --num_thread=0
---epoch=60
+--epoch=5
 --log_dir=./lw/logs --log_filename=train_miss_transformer_lw
 --checkpoints_dir=./lw/checkpoints
 --has_test

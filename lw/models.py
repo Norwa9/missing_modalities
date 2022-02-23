@@ -88,6 +88,36 @@ class MULTModel(nn.Module):
                                   res_dropout=self.res_dropout,
                                   embed_dropout=self.embed_dropout,
                                   attn_mask=self.attn_mask)
+
+    def set_input(self, input):
+        """
+        Unpack input data from the dataloader and perform necessary pre-processing steps.
+        Parameters:
+            input (dict): include the data itself and its metadata information.
+        """
+        acoustic = input['A_feat'].float().to(self.device)
+        lexical = input['L_feat'].float().to(self.device)
+        visual = input['V_feat'].float().to(self.device)
+        if self.isTrain:
+            self.label = input['label'].to(self.device)
+            self.missing_index = input['missing_index'].long().to(self.device)
+            # A modality
+            self.A_miss_index = self.missing_index[:, 0].unsqueeze(1).unsqueeze(2)
+            self.A_miss = acoustic * self.A_miss_index
+            self.A_reverse = acoustic * -1 * (self.A_miss_index - 1)
+            # L modality
+            self.L_miss_index = self.missing_index[:, 2].unsqueeze(1).unsqueeze(2)
+            self.L_miss = lexical * self.L_miss_index
+            self.L_reverse = lexical * -1 * (self.L_miss_index - 1)
+            # V modality
+            self.V_miss_index = self.missing_index[:, 1].unsqueeze(1).unsqueeze(2)
+            self.V_miss = visual * self.V_miss_index
+            self.V_reverse = visual * -1 * (self.V_miss_index - 1)
+        else:
+            self.A_miss = acoustic
+            self.V_miss = visual
+            self.L_miss = lexical
+        
             
     def forward(self, x_l, x_a, x_v):
         """

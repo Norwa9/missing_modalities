@@ -84,10 +84,14 @@ class MultimodalMissDataset(BaseDataset):
 
     def __getitem__(self, index):
         if self.set_name != 'trn':
+            # val && tst
+            # 对于val和tst，按顺序获取到不同模态缺失情况的数据
             feat_idx = index // 6         # totally 6 missing types
             missing_index = self.missing_index[index]         
             miss_type = self.miss_type[index]
         else:
+            # trn
+            # 对于trn，每次getitem时missingType是随机的
             feat_idx = index
             missing_index = torch.tensor(random.choice(self.missing_index)).long()
             miss_type = random.choice(self.miss_type)
@@ -105,6 +109,7 @@ class MultimodalMissDataset(BaseDataset):
         L_feat = torch.from_numpy(self.all_L[int2name][()]).float()
         
         return {
+            # trn 返回的是完整版本
             'A_feat': A_feat, 
             'V_feat': V_feat,
             'L_feat': L_feat,
@@ -113,7 +118,8 @@ class MultimodalMissDataset(BaseDataset):
             'missing_index': missing_index,
             'miss_type': miss_type
         } if self.set_name == 'trn' else{
-            'A_feat': A_feat * missing_index[0], 
+            # val,tst 返回的是缺失版本
+            'A_feat': A_feat * missing_index[0],  # 做一个mask运算，例如miss_index = [0,1,1]，那么A_feat = zero
             'V_feat': V_feat * missing_index[1],
             'L_feat': L_feat * missing_index[2],
             'label': label,
