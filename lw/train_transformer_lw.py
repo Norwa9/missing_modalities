@@ -1,3 +1,4 @@
+from fileinput import filename
 import logging
 import sys
 sys.path.append("/data/luowei/MMIN")
@@ -68,6 +69,7 @@ def get_logger(opt):
     beijing_now = utc_now.astimezone(SHA_TZ)
     cur_time = beijing_now.strftime('%Y-%m-%d-%H.%M.%S')
     file_path = os.path.join(logger_path, f"{cur_time}_{suffix}_{epoch}epoch.log")
+    print(file_path)
 
     # logger
     logger = logging.getLogger('train_miss_transformer')
@@ -140,9 +142,10 @@ def plot(opt,acc_list,uar_list):
     plt.show()
     
     # save
-    img_dir = os.path.join(opt.img_dir)
+    #img_dir = os.path.join(opt.img_dir)
     file_name = '_'.join([opt.model, opt.dataset_mode , 'cvNo'+str(opt.cvNo), str(opt.epoch)+'epoch'])
-    save_path = os.path.join(img_dir, file_name)
+    #save_path = os.path.join(img_dir, file_name)
+    save_path = '/data/luowei/MMIN/lw/imgs/' + file_name + '.jpg'
     plt.savefig(save_path)
 
 
@@ -196,58 +199,59 @@ if __name__ == '__main__':
 
     # criterion
     criterion = getattr(nn, 'CrossEntropyLoss')()
-    
-     
+
     best_eval_uar = 0              # record the best eval UAR
     best_eval_epoch = -1           # record the best eval epoch
     acc_list = []
     uar_list = []
-    for epoch in range(opt.epoch):
-        model.train()
-        proc_loss = 0.0
-        proc_size = 0
-        for batch_id, data in enumerate(train_dataset):
-            model.zero_grad()
-            label = data['label'].cuda()
-            A_miss,V_miss,L_miss = unpack_data(data,isTrain=True)
-            preds, _ = model(L_miss,A_miss,V_miss)
 
-            # batch loss
-            loss = criterion(preds,label)
-            loss.backward()
-            logger.info('epoch {}'.format(epoch) + ' batch_id {}'.format(batch_id) +  ' batch_loss ' +  '{:.4f}'.format(loss))
-            
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.8)
-            optimizer.step()
-
-            # overall loss
-            proc_loss += loss.item() 
-            proc_size += 1
-            avg_loss = proc_loss / proc_size
-        logger.info('epoch {}'.format(epoch) + ' epoch_loss ' +  '{:.4f}'.format(avg_loss))
-        
-        # eval
-        logger.info('start to eval...')
-        acc,uar = eval(model,val_dataset) # uar : Unweighted Average Recall
-        logger.info('epoch {}'.format(epoch) + ' val_acc ' +  '{:.4f}'.format(acc) + ' uar ' +  '{:.4f}'.format(uar))
-        save_network(model,epoch,opt)
-        acc_list.append(acc)
-        uar_list.append(uar)
-
-        if uar > best_eval_uar: # uar是recall_score
-            best_eval_epoch = epoch
-            best_eval_uar = uar
-
-    # test
-    if opt.has_test:
-        logger.info('Best eval epoch %d' % best_eval_epoch)
-        load_network(model,best_eval_epoch,opt)
-        logger.info('start to test...')
-        acc, uar = eval(model,test_dataset)
-        logger.info('Test result acc %.4f uar %.4f' % (acc, uar))
-    
-    # plot
     plot(opt,acc_list,uar_list)    
+    # for epoch in range(opt.epoch):
+    #     model.train()
+    #     proc_loss = 0.0
+    #     proc_size = 0
+    #     for batch_id, data in enumerate(train_dataset):
+    #         model.zero_grad()
+    #         label = data['label'].cuda()
+    #         A_miss,V_miss,L_miss = unpack_data(data,isTrain=True)
+    #         preds, _ = model(L_miss,A_miss,V_miss)
+
+    #         # batch loss
+    #         loss = criterion(preds,label)
+    #         loss.backward()
+    #         logger.info('epoch {}'.format(epoch) + ' batch_id {}'.format(batch_id) +  ' batch_loss ' +  '{:.4f}'.format(loss))
+            
+    #         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.8)
+    #         optimizer.step()
+
+    #         # overall loss
+    #         proc_loss += loss.item() 
+    #         proc_size += 1
+    #         avg_loss = proc_loss / proc_size
+    #     logger.info('epoch {}'.format(epoch) + ' epoch_loss ' +  '{:.4f}'.format(avg_loss))
+        
+    #     # eval
+    #     logger.info('start to eval...')
+    #     acc,uar = eval(model,val_dataset) # uar : Unweighted Average Recall
+    #     logger.info('epoch {}'.format(epoch) + ' val_acc ' +  '{:.4f}'.format(acc) + ' uar ' +  '{:.4f}'.format(uar))
+    #     save_network(model,epoch,opt)
+    #     acc_list.append(acc)
+    #     uar_list.append(uar)
+
+    #     if uar > best_eval_uar: # uar是recall_score
+    #         best_eval_epoch = epoch
+    #         best_eval_uar = uar
+
+    # # test
+    # if opt.has_test:
+    #     logger.info('Best eval epoch %d' % best_eval_epoch)
+    #     load_network(model,best_eval_epoch,opt)
+    #     logger.info('start to test...')
+    #     acc, uar = eval(model,test_dataset)
+    #     logger.info('Test result acc %.4f uar %.4f' % (acc, uar))
+    
+    # # plot
+    # plot(opt,acc_list,uar_list)    
 
 
         
