@@ -18,6 +18,7 @@ from datetime import timezone
 from sklearn.metrics import accuracy_score, recall_score, f1_score, confusion_matrix
 import torch.nn.functional as F
 import numpy as np
+import matplotlib.pyplot as plt
 
 def get_opt():
     parser = argparse.ArgumentParser()
@@ -44,6 +45,7 @@ def get_opt():
     # log
     parser.add_argument('--log_dir',type=str,default='./lw/logs',help='where log saves')
     parser.add_argument('--log_filename',type=str,default='train_miss_transformer_lw',help='log filename')
+    parser.add_argument('--img_dir',type=str,default='./lw/imgs',help='changes in metrics of the training process ')
 
     # save
     parser.add_argument('--checkpoints_dir', type=str, default='./lw/checkpoints', help='models are saved here')
@@ -53,7 +55,7 @@ def get_opt():
 
 def get_logger(opt):
     # file_path
-    logger_path = os.path.join(opt.log_dir, opt.log_filename, 'cvNo'+str(opt.cvNo)) 
+    logger_path = os.path.join(opt.log_dir, opt.log_filename, 'cvNo'+str(opt.cvNo))
     if not os.path.exists(logger_path):
         os.makedirs(logger_path) # makedirs 创建多级目录
     suffix = '_'.join([opt.model, opt.dataset_mode])
@@ -127,6 +129,24 @@ def unpack_data(input,isTrain):
         L_miss = lexical
     return A_miss,V_miss,L_miss
 
+def plot(opt,acc_list,uar_list):
+    acc_x = np.arange(len(acc_list))
+    uar_x = np.arange(len(uar_list))
+    acc_l = plt.plot(acc_x,acc_list,'r',label='acc')
+    uar_l = plt.plot(uar_x,uar_list,'g',label='uar')
+    plt.xlabel('epoch')
+    plt.ylabel('acc/uar')
+    plt.legend()
+    plt.show()
+    
+    # save
+    img_dir = os.path.join(opt.img_dir)
+    file_name = '_'.join([opt.model, opt.dataset_mode , 'cvNo'+str(opt.cvNo), str(opt.epoch)+'epoch'])
+    save_path = os.path.join(img_dir, file_name)
+    plt.savefig(save_path)
+
+
+
 def eval(model,val_dataset):
     model.eval() # 进入到eval模式
     total_pred = []
@@ -147,7 +167,7 @@ def eval(model,val_dataset):
     total_pred = np.concatenate(total_pred)
     total_label = np.concatenate(total_label)
     acc = accuracy_score(total_label, total_pred)
-    uar = recall_score(total_label, total_pred, average='macro')
+    uar = recall_score(total_label, total_pred, average='macro') # Unweighted Average Recall : macro 即使unweighted
 
     model.train() # 恢复到train模式
 
@@ -180,6 +200,8 @@ if __name__ == '__main__':
      
     best_eval_uar = 0              # record the best eval UAR
     best_eval_epoch = -1           # record the best eval epoch
+    acc_list = []
+    uar_list = []
     for epoch in range(opt.epoch):
         model.train()
         proc_loss = 0.0
@@ -204,21 +226,29 @@ if __name__ == '__main__':
             avg_loss = proc_loss / proc_size
         logger.info('epoch {}'.format(epoch) + ' epoch_loss ' +  '{:.4f}'.format(avg_loss))
         
+        # eval
         logger.info('start to eval...')
-        acc,uar = eval(model,val_dataset)
+        acc,uar = eval(model,val_dataset) # uar : Unweighted Average Recall
         logger.info('epoch {}'.format(epoch) + ' val_acc ' +  '{:.4f}'.format(acc) + ' uar ' +  '{:.4f}'.format(uar))
         save_network(model,epoch,opt)
+        acc_list.append(acc)
+        uar_list.append(uar)
 
         if uar > best_eval_uar: # uar是recall_score
             best_eval_epoch = epoch
             best_eval_uar = uar
 
+    # test
     if opt.has_test:
         logger.info('Best eval epoch %d' % best_eval_epoch)
-        logger.info('start to test...')
         load_network(model,best_eval_epoch,opt)
+        logger.info('start to test...')
         acc, uar = eval(model,test_dataset)
         logger.info('Test result acc %.4f uar %.4f' % (acc, uar))
+    
+    # plot
+    plot(opt,acc_list,uar_list)    
+
 
         
     
