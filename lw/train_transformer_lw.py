@@ -111,7 +111,7 @@ def unpack_data(input,isTrain):
     acoustic = input['A_feat'].cuda()
     lexical = input['L_feat'].cuda()
     visual = input['V_feat'].cuda()
-    if isTrain:
+    if isTrain and ('missing_index' in input): # isTrain && dataset=mutimodal_miss
         # 根据源码，完整模态下，dataloader返回的feature是模态完整的，所以需要根据missing_index制造模态缺失的feature
         missing_index = input['missing_index'].long().cuda()
         # A modality
@@ -123,7 +123,7 @@ def unpack_data(input,isTrain):
         # V modality
         V_miss_index = missing_index[:, 1].unsqueeze(1).unsqueeze(2)
         V_miss = visual * V_miss_index
-    else:
+    else: # !isTrain || dataset=mutimodal
         A_miss = acoustic
         V_miss = visual
         L_miss = lexical
