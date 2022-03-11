@@ -41,7 +41,7 @@ def eval(model, val_iter, is_save=False, phase='test'):
         np.save(os.path.join(save_dir, '{}_pred.npy'.format(phase)), total_pred)
         np.save(os.path.join(save_dir, '{}_label.npy'.format(phase)), total_label)
     
-        # save part results
+        # save part results (保存6种情况各自的acc？by罗威)
         for part_name in ['azz', 'zvz', 'zzl', 'avz', 'azl', 'zvl', 'avl']:
             part_index = np.where(total_miss_type == part_name)
             part_pred = total_pred[part_index]

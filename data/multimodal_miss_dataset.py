@@ -87,14 +87,14 @@ class MultimodalMissDataset(BaseDataset):
             # val && tst
             # 对于val和tst，按顺序获取到不同模态缺失情况的数据
             feat_idx = index // 6         # totally 6 missing types
-            missing_index = self.missing_index[index]         
+            missing_index = self.missing_index[index]    
             miss_type = self.miss_type[index]
         else:
             # trn
             # 对于trn，每次getitem时missingType是随机的
             feat_idx = index
-            missing_index = torch.tensor(random.choice(self.missing_index)).long()
-            miss_type = random.choice(self.miss_type)
+            missing_index = torch.tensor(random.choice(self.missing_index)).long() # 每次随机选取一个缺失情况，当epoch足够多时，就好像数据集是原来的6倍了。
+            miss_type = random.choice(self.miss_type) # miss_type 与 missing_index 不对应？ 我感觉这里不对应是搞错了
         
         int2name = self.int2name[feat_idx][0].decode()
         label = torch.tensor(self.label[feat_idx])
@@ -142,6 +142,7 @@ class MultimodalMissDataset(BaseDataset):
         features = (features - self.mean) / self.std
         return features
 
+    # 每读取batch个样本，就调用collate_fn进行打包
     def collate_fn(self, batch):
         A = [sample['A_feat'] for sample in batch]
         V = [sample['V_feat'] for sample in batch]
