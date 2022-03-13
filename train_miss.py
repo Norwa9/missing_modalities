@@ -140,7 +140,7 @@ if __name__ == '__main__':
         model.update_learning_rate(logger)                     # update learning rates at the end of every epoch.
         
         # eval
-        acc, uar, f1, cm = eval(model, val_dataset)
+        acc, uar, f1, cm = eval(model, val_dataset) # cm：混淆矩阵
         logger.info('Val result of epoch %d / %d acc %.4f uar %.4f f1 %.4f' % (epoch, opt.niter + opt.niter_decay, acc, uar, f1))
         logger.info('\n{}'.format(cm))
         
